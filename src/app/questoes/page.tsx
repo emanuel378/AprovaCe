@@ -12,7 +12,7 @@ type Questao = {
   alternativas: Alt[]; gabarito: string | null; status_gabarito: string; comentario: string | null; revisar: string[] | null;
 };
 type Opcao = { id: string; nome: string };
-type Status = 'todas' | 'nao-respondidas' | 'erradas';
+type Status = 'todas' | 'nao-respondidas' | 'certas' | 'erradas';
 
 export default function Questoes() {
   const router = useRouter();
@@ -80,6 +80,7 @@ export default function Questoes() {
       if (disc && q.disciplina_id !== disc) return false;
       if (assunto && q.assunto_id !== assunto) return false;
       if (status === 'nao-respondidas') return !(id in ultimaRef.current);
+      if (status === 'certas') return ultimaRef.current[id] === true;
       if (status === 'erradas') return ultimaRef.current[id] === false;
       return true;
     }));
@@ -164,6 +165,7 @@ export default function Questoes() {
           <select className="field !w-auto flex-1 min-w-40" aria-label="Situação" value={status} onChange={(e) => setStatus(e.target.value as Status)}>
             <option value="todas">Todas</option>
             <option value="nao-respondidas">Não respondidas</option>
+            <option value="certas">Certas</option>
             <option value="erradas">Erradas</option>
           </select>
         </div>
