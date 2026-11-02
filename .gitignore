@@ -1,0 +1,14 @@
+node_modules
+.next
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+# PDFs de terceiros (simulado licenciado) nunca vão para o repositório
+*.pdf
+
+.next-build
+
+# Texto das questões do simulado (material de terceiros) e dados de importação: o banco já está populado, o deploy não precisa deles
+data/
+supabase/seed/02_simulado-*.sql
