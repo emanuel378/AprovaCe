@@ -4,6 +4,16 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Marca, NomeMarca } from '@/components/Marca';
 
+// Mensagens do Supabase em português, para o aluno entender o que fazer.
+function traduzir(m: string): string {
+  if (/signups? (are )?(not allowed|disabled)/i.test(m)) return 'Novos cadastros estão desativados. Peça ao administrador para criar a sua conta.';
+  if (/invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+  if (/email not confirmed/i.test(m)) return 'Confirme o seu e-mail antes de entrar.';
+  if (/user already registered/i.test(m)) return 'Este e-mail já tem conta. Use "Já tenho conta" para entrar.';
+  if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Espere alguns minutos e tente de novo.';
+  return m;
+}
+
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -20,7 +30,7 @@ export default function Login() {
       ? await supabase.auth.signInWithPassword({ email, password: senha })
       : await supabase.auth.signUp({ email, password: senha });
     setEnviando(false);
-    if (error) return setMsg(error.message);
+    if (error) return setMsg(traduzir(error.message));
     // Com "Confirm email" desligado no Supabase, o cadastro já devolve sessão e entra direto.
     if (data.session) return router.push('/');
     setMsg('Conta criada. Confirme o e-mail para entrar.');

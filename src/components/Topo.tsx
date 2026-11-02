@@ -17,10 +17,11 @@ export function Topo() {
   const router = useRouter();
   const [montado, setMontado] = useState(false); // destaque do menu só depois de montar: evita diferença entre o HTML do servidor e o do navegador
   const [aberto, setAberto] = useState(false); // menu lateral (celular e telas estreitas)
+  const [claro, setClaro] = useState(false); // tema claro (o padrão é o escuro)
   const [ativo, setAtivo] = useState<Cron | null>(null); // cronômetro em andamento, para mostrar em qualquer tela
   const [agora, setAgora] = useState(() => Date.now());
   const fechar = useRef<HTMLButtonElement>(null);
-  useEffect(() => setMontado(true), []);
+  useEffect(() => { setMontado(true); setClaro(document.documentElement.dataset.tema === 'claro'); }, []);
   useEffect(() => setAberto(false), [path]);
 
   useEffect(() => {
@@ -48,11 +49,25 @@ export function Topo() {
     return () => { window.removeEventListener('keydown', esc); document.body.style.overflow = antes; };
   }, [aberto]);
 
+  function alternarTema() {
+    const novo = !claro;
+    setClaro(novo);
+    if (novo) document.documentElement.dataset.tema = 'claro'; else delete document.documentElement.dataset.tema;
+    try { localStorage.setItem('tema', novo ? 'claro' : 'escuro'); } catch { /* sem armazenamento: vale só nesta visita */ }
+  }
+
   async function sair() {
     await supabase.auth.signOut();
     router.replace('/login');
   }
 
+  const botaoTema = (
+    <button onClick={alternarTema} className="btn btn-ghost !p-2 !rounded-xl" aria-label={claro ? 'Usar tema escuro' : 'Usar tema claro'} title={claro ? 'Tema escuro' : 'Tema claro'}>
+      {claro
+        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
+        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>}
+    </button>
+  );
   const selo = ativo && path !== '/cronometro'
     ? <>{fmtRelogio(exibicao(ativo, agora).segundos)}{ativo.estado === 'pausado' && ' (pausado)'}</>
     : null;
@@ -71,7 +86,8 @@ export function Topo() {
             {LINKS.map((l) => <Link key={l.href} href={l.href} aria-current={montado && path === l.href ? 'page' : undefined} className="whitespace-nowrap">{l.nome}</Link>)}
           </nav>
           {selo && <Link href="/cronometro" className="chip chip-gold ml-auto lg:ml-0" title="Cronômetro em andamento">{selo}</Link>}
-          <button onClick={sair} className={`hidden lg:inline-flex btn btn-ghost !py-1.5 !px-3 !text-sm ${selo ? '' : 'ml-auto'}`}>Sair</button>
+          <span className={`hidden lg:inline-flex ${selo ? '' : 'ml-auto'}`}>{botaoTema}</span>
+          <button onClick={sair} className="hidden lg:inline-flex btn btn-ghost !py-1.5 !px-3 !text-sm">Sair</button>
         </div>
       </header>
 
@@ -94,6 +110,7 @@ export function Topo() {
             </nav>
             <div className="p-3 border-t border-line space-y-2">
               {ativo && path !== '/cronometro' && <Link href="/cronometro" className="chip chip-gold !flex !justify-center !py-2 !text-sm">{selo} · em andamento</Link>}
+              <button onClick={alternarTema} className="btn btn-ghost w-full">{claro ? 'Usar tema escuro' : 'Usar tema claro'}</button>
               <button onClick={sair} className="btn btn-ghost w-full">Sair</button>
             </div>
           </aside>

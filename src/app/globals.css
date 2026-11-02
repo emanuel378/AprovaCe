@@ -2,20 +2,19 @@
 
 /* Paleta (regra 60-30-10): 60% neutros frios, 30% azul-marinho institucional, 10% dourado de destaque.
    O dourado é o complementar do azul: contraste máximo para CTA e foco. Verde/vermelho só para acerto/erro. */
+/* Tema escuro é o padrão em qualquer aparelho (combina com a identidade azul-marinho). O claro é opcional, pelo botão do menu. */
 :root {
-  --bg:#F1F4F9; --card:#FFFFFF; --ink:#0F1B2D; --muted:#5B6B80; --line:#DFE6F0;
-  --navy:#0B2545; --brand:#0B2545; --primary:#0B2545; --primary-ink:#FFFFFF; --blue:#1D4E9E;
-  --gold:#E2A93B; --gold-soft:#FBF1D9; --red:#D1384A; --green:#12905A;
-  --shadow:0 1px 2px rgb(11 37 69 / .05), 0 12px 28px -14px rgb(11 37 69 / .22);
-  color-scheme: light; /* controles nativos (calendário, relógio, rolagem) seguem o tema */
+  --bg:#07101C; --card:#0D1C31; --ink:#E8EEF7; --muted:#8FA3BC; --line:#1B2F4B;
+  --navy:#0B2545; --brand:#A9C8FF; --primary:#2F6FDB; --primary-ink:#FFFFFF; --blue:#6AA0F5;
+  --gold:#E2A93B; --gold-soft:#2A2310; --red:#F0707F; --green:#34C58A;
+  --shadow:0 1px 2px rgb(0 0 0 / .4), 0 12px 28px -14px rgb(0 0 0 / .6);
+  color-scheme: dark; /* controles nativos (calendário, relógio, rolagem) seguem o tema */
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:#07101C; --card:#0D1C31; --ink:#E8EEF7; --muted:#8FA3BC; --line:#1B2F4B;
-    --brand:#A9C8FF; --primary:#2F6FDB; --blue:#6AA0F5; --gold-soft:#2A2310;
-    --red:#F0707F; --green:#34C58A; --shadow:0 1px 2px rgb(0 0 0 / .4), 0 12px 28px -14px rgb(0 0 0 / .6);
-    color-scheme: dark;
-  }
+:root[data-tema="claro"] {
+  --bg:#F1F4F9; --card:#FFFFFF; --ink:#0F1B2D; --muted:#5B6B80; --line:#DFE6F0;
+  --brand:#0B2545; --primary:#0B2545; --blue:#1D4E9E; --gold-soft:#FBF1D9; --red:#D1384A; --green:#12905A;
+  --shadow:0 1px 2px rgb(11 37 69 / .05), 0 12px 28px -14px rgb(11 37 69 / .22);
+  color-scheme: light;
 }
 @theme inline {
   --color-navy:var(--navy); --color-brand:var(--brand); --color-blue:var(--blue); --color-red:var(--red); --color-bg:var(--bg);
