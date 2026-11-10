@@ -9,6 +9,8 @@ const ctx = {
 };
 const pendentes = { port: [{ id: 'port-01', nome: 'Leitura' }, { id: 'port-02', nome: 'Estrutura' }], rl: [{ id: 'rl-01', nome: 'Aritmética' }], crim: [{ id: 'crim-01', nome: 'Crime' }] };
 const ped = { foco: [], desempenho: {} };
+const dias = (n) => Array.from({ length: n }, (_, i) => `2026-03-${String(i + 1).padStart(2, '0')}`);
+const porDiaDisc = (b) => b.reduce((m, x) => ({ ...m, [x.data]: [...(m[x.data] ?? []), x.disciplina_id] }), {});
 
 test('esqueleto: respeita os minutos por dia e inclui todas as matérias', () => {
   const b = montarEsqueleto(ctx, ped);
@@ -19,11 +21,38 @@ test('esqueleto: respeita os minutos por dia e inclui todas as matérias', () =>
   assert.deepEqual(b.map((x) => x.i), b.map((_, i) => i));
 });
 test('esqueleto: o peso e o foco mudam a divisão', () => {
+  const longo = { ...ctx, datas: dias(12) };
   const conta = (b) => b.reduce((m, x) => ({ ...m, [x.disciplina_id]: (m[x.disciplina_id] ?? 0) + x.duracao_min }), {});
-  const base = conta(montarEsqueleto(ctx, ped));
-  const foco = conta(montarEsqueleto(ctx, { foco: ['crim'], desempenho: { crim: { acerto_pct: 20, concluidos: 0, total: 8 } } }));
+  const base = conta(montarEsqueleto(longo, ped));
+  const foco = conta(montarEsqueleto(longo, { foco: ['crim'], desempenho: { crim: { acerto_pct: 20, concluidos: 0, total: 8 } } }));
   assert.equal(base.port >= base.crim, true);
   assert.equal(foco.crim > base.crim, true);
+});
+test('esqueleto: cada dia tem exatamente N matérias diferentes e fecha o total de minutos', () => {
+  for (const n of [1, 2, 3]) {
+    const b = montarEsqueleto({ ...ctx, datas: dias(8), materiasPorDia: n }, ped);
+    for (const [, discsDoDia] of Object.entries(porDiaDisc(b))) assert.equal(new Set(discsDoDia).size, n);
+    const min = {};
+    for (const x of b) min[x.data] = (min[x.data] ?? 0) + x.duracao_min;
+    assert.equal(Object.values(min).every((v) => v === 150), true);
+  }
+});
+test('esqueleto: o padrão é 2 matérias por dia e N maior que o número de matérias é limitado', () => {
+  assert.equal(new Set(Object.values(porDiaDisc(montarEsqueleto({ ...ctx, datas: dias(4) }, ped)))[0]).size, 2);
+  assert.equal(new Set(Object.values(porDiaDisc(montarEsqueleto({ ...ctx, datas: dias(4), materiasPorDia: 9 }, ped)))[0]).size, 3);
+});
+test('esqueleto: com mais matérias por dia, cada uma recebe menos tempo; todas aparecem ao longo do período', () => {
+  const b = montarEsqueleto({ ...ctx, datas: dias(6), materiasPorDia: 3 }, ped);
+  assert.equal(b.every((x) => x.duracao_min <= 60), true);
+  assert.equal(new Set(b.map((x) => x.disciplina_id)).size, 3);
+});
+test('esqueleto: período longo com muito tempo não passa de ~100 blocos', () => {
+  const grande = { ...ctx, datas: dias(21), minutosPorDia: 480, materiasPorDia: 3 };
+  const b = montarEsqueleto(grande, ped);
+  assert.equal(b.length <= 100, true);
+  const min = {};
+  for (const x of b) min[x.data] = (min[x.data] ?? 0) + x.duracao_min;
+  assert.equal(Object.values(min).every((v) => v === 480), true);
 });
 test('minutosAlvo soma ~ o total e reforça foco', () => {
   const sem = minutosAlvo(ctx, ped);

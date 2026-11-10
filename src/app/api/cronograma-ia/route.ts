@@ -8,7 +8,7 @@ const MODELO = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const resposta = (corpo: unknown, status = 200) => Response.json(corpo, { status });
 
-type Corpo = { datas?: unknown; minutosPorDia?: unknown; dataProva?: unknown; foco?: unknown; observacoes?: unknown };
+type Corpo = { datas?: unknown; minutosPorDia?: unknown; materiasPorDia?: unknown; dataProva?: unknown; foco?: unknown; observacoes?: unknown };
 
 export async function POST(req: Request) {
   const chave = process.env.GROQ_API_KEY;
@@ -29,6 +29,9 @@ export async function POST(req: Request) {
   const minutosPorDia = Math.round(Number(c.minutosPorDia));
   if (!datas.length || datas.length > 21) return resposta({ erro: 'Escolha de 1 a 21 dias de estudo.' }, 400);
   if (!(minutosPorDia >= 30 && minutosPorDia <= 720)) return resposta({ erro: 'O tempo por dia deve ficar entre 30 minutos e 12 horas.' }, 400);
+  const materiasPorDia = c.materiasPorDia === undefined ? 2 : Math.round(Number(c.materiasPorDia));
+  if (!(materiasPorDia >= 1 && materiasPorDia <= 5)) return resposta({ erro: 'Escolha de 1 a 5 matérias por dia.' }, 400);
+  if (minutosPorDia / materiasPorDia < 25) return resposta({ erro: 'Com esse tempo por dia, escolha menos matérias (cada uma precisa de pelo menos 25 minutos).' }, 400);
   const dataProva = typeof c.dataProva === 'string' && DATA.test(c.dataProva) ? c.dataProva : null;
   const foco = Array.isArray(c.foco) ? c.foco.filter((x): x is string => typeof x === 'string').slice(0, 10) : [];
   const observacoes = typeof c.observacoes === 'string' ? c.observacoes : '';
@@ -78,7 +81,7 @@ export async function POST(req: Request) {
     if (dia) revisoes.push({ assunto_id: x.assunto_id, data: dia });
   }
 
-  const ctx: ContextoIA = { datas, minutosPorDia, discs, assuntos: edital };
+  const ctx: ContextoIA = { datas, minutosPorDia, materiasPorDia, discs, assuntos: edital };
   const pedido: PedidoIA = { dataProva, foco, observacoes, atrasadas: atr.count ?? 0, desempenho, pendentes, revisoes: revisoes.slice(0, 30) };
   const blocos = montarEsqueleto(ctx, pedido); // o código decide matéria, dia e duração de cada bloco; a IA escolhe assunto, tipo e meta
   const { system, user } = montarPrompt(ctx, pedido, blocos);

@@ -1,7 +1,6 @@
 // Cronograma com IA. O código monta o esqueleto (qual matéria em cada bloco de cada dia, respeitando peso e tempo);
 // a IA escolhe o assunto, o tipo e a meta de cada bloco. Assim a distribuição não depende de a IA obedecer.
 // O pedido usa aliases curtos (D1, D1.03…) no lugar dos ids: o plano gratuito da Groq limita os tokens por minuto.
-import { montarSemana } from './plano.ts';
 
 export type TipoSessao = 'teoria' | 'questoes' | 'revisao' | 'flashcards' | 'simulado';
 export const TIPOS_IA: TipoSessao[] = ['teoria', 'questoes', 'revisao', 'flashcards', 'simulado'];
@@ -12,6 +11,7 @@ export type Bloco = { i: number; data: string; disciplina_id: string; duracao_mi
 export type ContextoIA = {
   datas: string[]; // dias em que o aluno estuda (yyyy-mm-dd)
   minutosPorDia: number;
+  materiasPorDia?: number; // quantas matérias diferentes por dia (padrão 2)
   discs: { id: string; nome: string; questoes_prova: number }[];
   assuntos: { id: string; disciplina_id: string; nome: string }[]; // só assuntos válidos para o plano
 };
@@ -34,13 +34,35 @@ function pesoAjustado(d: ContextoIA['discs'][number], p: Pick<PedidoIA, 'foco' |
   return d.questoes_prova * (p.foco.includes(d.id) ? 1.5 : 1) * (acerto !== null && acerto !== undefined && acerto < 50 ? 1.3 : 1);
 }
 
-/** Divide cada dia em blocos de ~50 min e distribui as disciplinas entre eles pelo peso ajustado, intercalando-as. */
+export const MATERIAS_POR_DIA_PADRAO = 2;
+
+/**
+ * Cada dia tem exatamente `materiasPorDia` matérias diferentes, e o tempo do dia é dividido entre elas (mais de um bloco de
+ * ~50 min por matéria quando sobra tempo). Quais matérias entram em cada dia segue o peso ajustado: a cada dia cada matéria
+ * ganha crédito proporcional ao peso, e entram as de maior crédito. Assim, no período todo, a divisão respeita o peso.
+ */
 export function montarEsqueleto(ctx: ContextoIA, p: Pick<PedidoIA, 'foco' | 'desempenho'>): Bloco[] {
-  const porDia = Math.max(1, Math.round(ctx.minutosPorDia / 50));
-  const duracao = Math.max(15, Math.min(120, Math.round(ctx.minutosPorDia / porDia / 5) * 5));
-  const discs = ctx.discs.map((d) => ({ id: d.id, questoes_prova: pesoAjustado(d, p) }));
-  return montarSemana({ datas: ctx.datas, blocosPorDia: porDia, duracaoMin: duracao, discs, pendentes: {}, revisoes: [] })
-    .map((s, i) => ({ i, data: s.data, disciplina_id: s.disciplina_id as string, duracao_min: s.duracao_min }));
+  const n = Math.max(1, Math.min(Math.round(ctx.materiasPorDia ?? MATERIAS_POR_DIA_PADRAO), ctx.discs.length));
+  const pesos = ctx.discs.map((d) => pesoAjustado(d, p));
+  const soma = pesos.reduce((a, b) => a + b, 0) || 1;
+  const credito = pesos.map(() => 0);
+  const blocos: Bloco[] = [];
+  // Períodos longos com muitas matérias viram blocos maiores: o pedido e a resposta da IA têm limite de tamanho.
+  const porMateria = ctx.minutosPorDia / n;
+  const compacto = ctx.datas.length * n * Math.max(1, Math.round(porMateria / 50), Math.ceil(porMateria / 120)) > 100;
+  for (const data of ctx.datas) {
+    pesos.forEach((w, k) => { credito[k] = Math.min(credito[k] + (w / soma) * n, 2); }); // teto: matéria muito pesada não acumula sem limite
+    const escolhidas = pesos.map((_, k) => k).sort((a, b) => credito[b] - credito[a] || pesos[b] - pesos[a] || a - b).slice(0, n);
+    escolhidas.forEach((k) => { credito[k] -= 1; });
+    const base = Math.round(ctx.minutosPorDia / n / 5) * 5;
+    escolhidas.forEach((k, j) => {
+      const min = j === n - 1 ? ctx.minutosPorDia - base * (n - 1) : base; // a última matéria fecha o total do dia
+      const qtd = compacto ? Math.max(1, Math.ceil(min / 180)) : Math.max(1, Math.round(min / 50), Math.ceil(min / 120));
+      const parte = Math.floor(min / qtd / 5) * 5;
+      for (let b = 0; b < qtd; b++) blocos.push({ i: blocos.length, data, disciplina_id: ctx.discs[k].id, duracao_min: b === qtd - 1 ? min - parte * (qtd - 1) : parte });
+    });
+  }
+  return blocos;
 }
 
 /** Aliases curtos: disciplina "D1"…, assunto "D1.01"… (e o caminho de volta). */

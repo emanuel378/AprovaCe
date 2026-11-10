@@ -25,6 +25,7 @@ export function CronogramaIA({ userId, discs, assuntos, onFechar, onAplicado }: 
   const [inicio, setInicio] = useState(hoje);
   const [dias, setDias] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
   const [horas, setHoras] = useState(3);
+  const [materias, setMaterias] = useState(2); // matérias diferentes por dia
   const [provaEm, setProvaEm] = useState('');
   const [foco, setFoco] = useState<Set<string>>(new Set());
   const [obs, setObs] = useState('');
@@ -47,6 +48,9 @@ export function CronogramaIA({ userId, discs, assuntos, onFechar, onAplicado }: 
 
   const datas = Array.from({ length: semanas * 7 }, (_, i) => somar(doIso(inicio), i))
     .filter((d) => dias.has((d.getDay() + 6) % 7) && iso(d) >= hoje).map(iso);
+  const maxMaterias = Math.max(1, Math.min(5, Math.floor((horas * 60) / 30))); // cada matéria precisa de pelo menos 30 min
+  const materiasOk = Math.min(materias, maxMaterias);
+  const porMateria = Math.round((horas * 60) / materiasOk);
   const alternar = <T,>(set: Set<T>, setar: (s: Set<T>) => void, v: T) => { const n = new Set(set); if (n.has(v)) n.delete(v); else n.add(v); setar(n); };
   const nomeDisc = (id: string | null) => discs.find((d) => d.id === id)?.nome;
   const nomeAssunto = (id: string | null) => assuntos.find((a) => a.id === id)?.nome;
@@ -58,7 +62,7 @@ export function CronogramaIA({ userId, discs, assuntos, onFechar, onAplicado }: 
     try {
       const res = await fetch('/api/cronograma-ia', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.session?.access_token ?? ''}` },
-        body: JSON.stringify({ datas, minutosPorDia: Math.round(horas * 60), dataProva: provaEm || null, foco: [...foco], observacoes: obs }),
+        body: JSON.stringify({ datas, minutosPorDia: Math.round(horas * 60), materiasPorDia: materiasOk, dataProva: provaEm || null, foco: [...foco], observacoes: obs }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setErro(json.erro ?? 'Não foi possível gerar o cronograma.'); return setFase('form'); }
@@ -107,7 +111,13 @@ export function CronogramaIA({ userId, discs, assuntos, onFechar, onAplicado }: 
               <label className="space-y-1">Horas por dia
                 <select className="field" value={horas} onChange={(e) => setHoras(Number(e.target.value))}>{HORAS.map((h) => <option key={h} value={h}>{h} h</option>)}</select>
               </label>
-              <label className="space-y-1">Data da prova <span className="text-muted">(opcional)</span><input type="date" className="field" min={hoje} value={provaEm} onChange={(e) => setProvaEm(e.target.value)} /></label>
+              <label className="space-y-1">Matérias por dia
+                <select className="field" value={materiasOk} onChange={(e) => setMaterias(Number(e.target.value))}>
+                  {Array.from({ length: maxMaterias }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} {n === 1 ? 'matéria' : 'matérias'}</option>)}
+                </select>
+                <span className="block text-xs text-muted">Cerca de {porMateria >= 60 ? `${Math.floor(porMateria / 60)}h${porMateria % 60 ? ` ${porMateria % 60}min` : ''}` : `${porMateria} min`} em cada</span>
+              </label>
+              <label className="space-y-1 col-span-2">Data da prova <span className="text-muted">(opcional)</span><input type="date" className="field" min={hoje} value={provaEm} onChange={(e) => setProvaEm(e.target.value)} /></label>
             </div>
 
             <div className="space-y-2">
